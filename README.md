@@ -14,3 +14,4 @@ These values are in "Variables" tab on imported device. Click on Pencil, enter d
 If credentials are ok after few seconds you should have created all linked devices for found Netatmo modules. Values for these devices are refreshed every 5 minutes but QA also has a "Get Measurements" button to manually refresh data.
 
 Important note: 5.030 or newer firmware version on HC3 is needed.
+QA is available to download at https://marketplace.fibaro.com/items/netatmo-qa-for-hc3
