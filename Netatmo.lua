@@ -1,4 +1,4 @@
--- HC3 Netatmo Weather Station QuickApp v2.2
+-- HC3 Netatmo Weather Station QuickApp v2.2.1
 -- (c) 2020 GSmart Grzegorz Barcicki
 -- For questions and debug: grzegorz@gsmart.pl
 
