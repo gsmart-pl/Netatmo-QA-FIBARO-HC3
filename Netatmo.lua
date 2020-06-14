@@ -13,478 +13,478 @@
 -- https://dev.netatmo.com/apidocumentation/weather
 
 function QuickApp:onInit()
-	__TAG = "QA_NETATMO_" .. plugin.mainDeviceId -- NEW
-	self:trace("QuickApp Netatmo - Initialization")
+    __TAG = "QA_NETATMO_" .. plugin.mainDeviceId -- NEW
+    self:trace("QuickApp Netatmo - Initialization")
 
-	-- Get QuickApp variables
-	self.username      = self:getVariable("username")
-	self.password      = self:getVariable("password")
-	self.client_id     = self:getVariable("client_id")
-	self.client_secret = self:getVariable("client_secret")
+    -- Get QuickApp variables
+    self.username      = self:getVariable("username")
+    self.password      = self:getVariable("password")
+    self.client_id     = self:getVariable("client_id")
+    self.client_secret = self:getVariable("client_secret")
 
-	-- Update main device properties
-	self:updateProperty("manufacturer", "Netatmo")
-	self:updateProperty("model", "Weather Station")
+    -- Update main device properties
+    self:updateProperty("manufacturer", "Netatmo")
+    self:updateProperty("model", "Weather Station")
 
-	-- Setup classes for child devices.
-	self:initChildDevices({
-		["com.fibaro.temperatureSensor"] = MyNetatmoSensor,
-		["com.fibaro.humiditySensor"] = MyNetatmoSensor,
-		["com.fibaro.multilevelSensor"] = MyNetatmoSensor,
-		["com.fibaro.windSensor"] = MyNetatmoSensor,
-		["com.fibaro.rainSensor"] = MyNetatmoSensor,
-		["com.fibaro.genericDevice"] = MyNetatmoSensor,
-	})
+    -- Setup classes for child devices.
+    self:initChildDevices({
+        ["com.fibaro.temperatureSensor"] = MyNetatmoSensor,
+        ["com.fibaro.humiditySensor"] = MyNetatmoSensor,
+        ["com.fibaro.multilevelSensor"] = MyNetatmoSensor,
+        ["com.fibaro.windSensor"] = MyNetatmoSensor,
+        ["com.fibaro.rainSensor"] = MyNetatmoSensor,
+        ["com.fibaro.genericDevice"] = MyNetatmoSensor,
+    })
 
-	-- International language traduction
-	self.traduction = {
-		en = {
-			temperature = "Temperature",
-			humidity = "Humidity",
-			co2 = "CO2",
-			pressure = "Pressure",
-			noise = "Noise",
-			wind = "Wind",
-			gust = "Gusts",
-			rain = "Rain",
-			module = "Module",
-		},
-		pl = {
-			temperature = "Temperatura",
-			humidity = "Wilgotność",
-			co2 = "CO2",
-			pressure = "Ciśnienie",
-			noise = "Hałas",
-			wind = "Wiatr",
-			gust = "Poryw",
-			rain = "Deszcz",
-			module = "Moduł",
-		},
-		fr = {
-			temperature = "Température",
-			humidity = "Humidité",
-			co2 = "CO2",
-			pressure = "Pression",
-			noise = "Bruit",
-			wind = "Vent",
-			gust = "Rafales",
-			rain = "Pluie",
-			module = "Module",
-		}
-	}
-	self.language = (type(api) == "function") and api.get("/settings/info").defaultLanguage or nil
-	if not self.traduction[self.language] then self.language = "en" end
-	self.trad = self.traduction[string.lower(self.language)]
+    -- International language traduction
+    self.traduction = {
+        en = {
+            temperature = "Temperature",
+            humidity = "Humidity",
+            co2 = "CO2",
+            pressure = "Pressure",
+            noise = "Noise",
+            wind = "Wind",
+            gust = "Gusts",
+            rain = "Rain",
+            module = "Module",
+        },
+        pl = {
+            temperature = "Temperatura",
+            humidity = "Wilgotność",
+            co2 = "CO2",
+            pressure = "Ciśnienie",
+            noise = "Hałas",
+            wind = "Wiatr",
+            gust = "Poryw",
+            rain = "Deszcz",
+            module = "Moduł",
+        },
+        fr = {
+            temperature = "Température",
+            humidity = "Humidité",
+            co2 = "CO2",
+            pressure = "Pression",
+            noise = "Bruit",
+            wind = "Vent",
+            gust = "Rafales",
+            rain = "Pluie",
+            module = "Module",
+        }
+    }
+    self.language = (type(api) == "function") and api.get("/settings/info").defaultLanguage or nil
+    if not self.traduction[self.language] then self.language = "en" end
+    self.trad = self.traduction[string.lower(self.language)]
 
-	-- Supported Netatmo datatypes mapped to HC3 device type
-	self.NetatmoTypesToHC3 = {
-		-- Last temperature measure @ time_utc (in °C)
-		Temperature = {
-			type = "com.fibaro.temperatureSensor",
-			defaultName = self.trad.temperature,
-			value = "value",
-		},
-		-- Last humidity measured @ time_utc (in %)
-		Humidity = {
-			type = "com.fibaro.humiditySensor",
-			defaultName = self.trad.humidity,
-			value = "value",
-		},
-		-- Last Co2 measured @ time_utc (in ppm)
-		CO2 = {
-			type = "com.fibaro.multilevelSensor",
-			defaultName = self.trad.co2,
-			value = "value",
-			unit = "ppm",
-		},
-		-- Last Sea level pressure measured @ time_utc (in mbar)
-		Pressure = {
-			type = "com.fibaro.multilevelSensor",
-			defaultName = self.trad.pressure,
-			value = "value",
-			unit = "mbar",
-		},
-		-- Last noise measured @ time_utc (in db)
-		Noise = {
-			type = "com.fibaro.multilevelSensor",
-			defaultName = self.trad.noise,
-			value = "value",
-			unit = "dB",
-		},
-		-- Current 5 min average wind speed measured @ time_utc (in km/h)
-		WindStrength = {
-			type = "com.fibaro.windSensor",
-			defaultName = self.trad.wind,
-			value = "value",
-			unit = "km/h",
-			--unit = "m/s",
-			--conversion = function(value)
-				--return value/3.6
-			--end
-		},
-		-- Current 5 min average wind direction measured @ time_utc (in °)
-		WindAngle = {
-			type = "com.fibaro.multilevelSensor",
-			defaultName = self.trad.wind,
-			value = "value",
-			unit = "°",
-		},
-		-- Speed of the last 5 min highest gust wind (in km/h)
-		GustStrength = {
-			type = "com.fibaro.windSensor",
-			defaultName = self.trad.gust,
-			value = "value",
-			unit = "km/h",
-		},
-		-- Direction of the last 5 min highest gust wind (in °)
-		GustAngle = {
-			type = "com.fibaro.multilevelSensor",
-			defaultName = self.trad.gust,
-			value = "value",
-			unit = "°",
-		},
-		-- Last rain measured (in mm)
-		Rain = {
-			type = "com.fibaro.rainSensor",
-			defaultName = self.trad.rain .. " 5m",
-			value = "value",
-			unit = "mm",
-		},
-		-- Amount of rain in last hour
-		sum_rain_1 = {
-			type = "com.fibaro.rainSensor",
-			defaultName = self.trad.rain .. " 1h",
-			value = "value",
-			unit = "mm/h",
-		},
-		-- Amount of rain today
-		sum_rain_24 = {
-			type = "com.fibaro.rainSensor",
-			defaultName = self.trad.rain .. " 24h",
-			value = "value",
-			unit = "mm",
-		},
-		-- Battery level
-		battery_percent = {
-			type = "com.fibaro.genericDevice",
-			defaultName = self.trad.module,
-			value = "batteryLevel",
-			interface = "battery",
-		},
-	--[[    -- If more data is needed it is possible to add new child devices to react dashboard_data from Netatmo API
-	]]--
-	}
+    -- Supported Netatmo datatypes mapped to HC3 device type
+    self.NetatmoTypesToHC3 = {
+        -- Last temperature measure @ time_utc (in °C)
+        Temperature = {
+            type = "com.fibaro.temperatureSensor",
+            defaultName = self.trad.temperature,
+            value = "value",
+        },
+        -- Last humidity measured @ time_utc (in %)
+        Humidity = {
+            type = "com.fibaro.humiditySensor",
+            defaultName = self.trad.humidity,
+            value = "value",
+        },
+        -- Last Co2 measured @ time_utc (in ppm)
+        CO2 = {
+            type = "com.fibaro.multilevelSensor",
+            defaultName = self.trad.co2,
+            value = "value",
+            unit = "ppm",
+        },
+        -- Last Sea level pressure measured @ time_utc (in mbar)
+        Pressure = {
+            type = "com.fibaro.multilevelSensor",
+            defaultName = self.trad.pressure,
+            value = "value",
+            unit = "mbar",
+        },
+        -- Last noise measured @ time_utc (in db)
+        Noise = {
+            type = "com.fibaro.multilevelSensor",
+            defaultName = self.trad.noise,
+            value = "value",
+            unit = "dB",
+        },
+        -- Current 5 min average wind speed measured @ time_utc (in km/h)
+        WindStrength = {
+            type = "com.fibaro.windSensor",
+            defaultName = self.trad.wind,
+            value = "value",
+            unit = "km/h",
+            --unit = "m/s",
+            --conversion = function(value)
+                --return value/3.6
+            --end
+        },
+        -- Current 5 min average wind direction measured @ time_utc (in °)
+        WindAngle = {
+            type = "com.fibaro.multilevelSensor",
+            defaultName = self.trad.wind,
+            value = "value",
+            unit = "°",
+        },
+        -- Speed of the last 5 min highest gust wind (in km/h)
+        GustStrength = {
+            type = "com.fibaro.windSensor",
+            defaultName = self.trad.gust,
+            value = "value",
+            unit = "km/h",
+        },
+        -- Direction of the last 5 min highest gust wind (in °)
+        GustAngle = {
+            type = "com.fibaro.multilevelSensor",
+            defaultName = self.trad.gust,
+            value = "value",
+            unit = "°",
+        },
+        -- Last rain measured (in mm)
+        Rain = {
+            type = "com.fibaro.rainSensor",
+            defaultName = self.trad.rain .. " 5m",
+            value = "value",
+            unit = "mm",
+        },
+        -- Amount of rain in last hour
+        sum_rain_1 = {
+            type = "com.fibaro.rainSensor",
+            defaultName = self.trad.rain .. " 1h",
+            value = "value",
+            unit = "mm/h",
+        },
+        -- Amount of rain today
+        sum_rain_24 = {
+            type = "com.fibaro.rainSensor",
+            defaultName = self.trad.rain .. " 24h",
+            value = "value",
+            unit = "mm",
+        },
+        -- Battery level
+        battery_percent = {
+            type = "com.fibaro.genericDevice",
+            defaultName = self.trad.module,
+            value = "batteryLevel",
+            interface = "battery",
+        },
+    --[[    -- If more data is needed it is possible to add new child devices to react dashboard_data from Netatmo API
+    ]]--
+    }
 
-	self.max_status_store = 0
+    self.max_status_store = 0
 
-	-- Main loop
-	self:loop() -- MODIFIED
+    -- Main loop
+    self:loop() -- MODIFIED
 end
 
 function QuickApp:loop() -- MODIFIED
 --self:trace("QuickApp:loop()")
-	self.devicesMap = self:buildDevicesMap()
+    self.devicesMap = self:buildDevicesMap()
 
-	self:oAuthNetatmo(function(token)
-		self:getNetatmoDevicesData(token)
-	end)
+    self:oAuthNetatmo(function(token)
+        self:getNetatmoDevicesData(token)
+    end)
 
-	-- NEW : Next refresh is 10s after next measurement
-	local currentTime = os.time()
-	local estimatedTime = self.max_status_store + 600 + 10
-	local optimizedDelay = estimatedTime - currentTime
-	local waitDelay = (optimizedDelay > 0) and optimizedDelay or 30
-	self:debug("Current time : ", os.date("%H:%M:%S", currentTime), "- Last updated values : ", os.date("%H:%M:%S", self.max_status_store), " - Next loop in", waitDelay, "seconds at", os.date("%H:%M:%S", currentTime+waitDelay), "...")
-	fibaro.setTimeout(waitDelay*1000, function() self:loop() end)
+    -- NEW : Next refresh is 10s after next measurement
+    local currentTime = os.time()
+    local estimatedTime = self.max_status_store + 600 + 10
+    local optimizedDelay = estimatedTime - currentTime
+    local waitDelay = (optimizedDelay > 0) and optimizedDelay or 30
+    self:debug("Current time : ", os.date("%H:%M:%S", currentTime), "- Last updated values : ", os.date("%H:%M:%S", self.max_status_store), " - Next loop in", waitDelay, "seconds at", os.date("%H:%M:%S", currentTime+waitDelay), "...")
+    fibaro.setTimeout(waitDelay*1000, function() self:loop() end)
 end
 
 function QuickApp:buildDevicesMap()
 --self:debug("QuickApp:buildDevicesMap()")
-	local DM = {}
-	for hcID,child in pairs(self.childDevices) do
-		local module_id = child:getVariable("module_id")
-		local device_id = child:getVariable("device_id")
-		local data_type = child:getVariable("data_type")
-		if (type(DM[module_id]) ~= "table") then
-			DM[module_id] = {
-				module_id = module_id,
-				device_id = device_id,
-				devices_map = {}
-			}
-		end
-		DM[module_id].devices_map[data_type] = hcID
-	end
-	-- self:debug("DevicesMap built from childs: "..json.encode(DM))
-	return(DM)
+    local DM = {}
+    for hcID,child in pairs(self.childDevices) do
+        local module_id = child:getVariable("module_id")
+        local device_id = child:getVariable("device_id")
+        local data_type = child:getVariable("data_type")
+        if (type(DM[module_id]) ~= "table") then
+            DM[module_id] = {
+                module_id = module_id,
+                device_id = device_id,
+                devices_map = {}
+            }
+        end
+        DM[module_id].devices_map[data_type] = hcID
+    end
+    -- self:debug("DevicesMap built from childs: "..json.encode(DM))
+    return(DM)
 end
 
 -- Getting Data based on one request: "getstationsdata"
 function QuickApp:getNetatmoDevicesData(token, mode)
 --self:debug("QuickApp:getNetatmoDevicesData()")
-	local request_body = "access_token=".. token
+    local request_body = "access_token=".. token
 
-	self:getNetatmoResponseData("https://api.netatmo.net/api/getstationsdata", request_body, 
-		function(getData) 
-			-- self:debug("Getting stations data")
-			if (getData.error) then
-				self:error("Response error: " .. getData.error.message)
-			elseif (getData.status == "ok" and getData.body) then
-				local Devices = {}
+    self:getNetatmoResponseData("https://api.netatmo.net/api/getstationsdata", request_body, 
+        function(getData) 
+            -- self:debug("Getting stations data")
+            if (getData.error) then
+                self:error("Response error: " .. getData.error.message)
+            elseif (getData.status == "ok" and getData.body) then
+                local Devices = {}
 
-				for _, device in pairs(getData.body.devices) do
-					local station_name = device.station_name or ""
-					local last_status_store = os.date ("%d.%m.%Y %H:%M:%S", device.last_status_store)
-					local noOfModules = 1
+                for _, device in pairs(getData.body.devices) do
+                    local station_name = device.station_name or ""
+                    local last_status_store = os.date ("%d.%m.%Y %H:%M:%S", device.last_status_store)
+                    local noOfModules = 1
 
-					self:debug("Found device: '"..device._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(device.module_name or "???").."'; type: '"..device.type.."'; device.last_status_store: '"..last_status_store.."'") -- MODIFIED
+                    self:debug("Found device: '"..device._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(device.module_name or "???").."'; type: '"..device.type.."'; device.last_status_store: '"..last_status_store.."'") -- MODIFIED
 
-					if device.last_status_store > self.max_status_store then
-						self.max_status_store = device.last_status_store
-					end
+                    if device.last_status_store > self.max_status_store then
+                        self.max_status_store = device.last_status_store
+                    end
 
-					self:UpdateHCDevice(mode, {
-						id = device._id,
-						device_id = device._id,
-						name = device.module_name or "",
-						station_name = station_name,
-						reachable = device.reachable,
-						last_status_store = last_status_store,
-					}, device.dashboard_data or {})
+                    self:UpdateHCDevice(mode, {
+                        id = device._id,
+                        device_id = device._id,
+                        name = device.module_name or "",
+                        station_name = station_name,
+                        reachable = device.reachable,
+                        last_status_store = last_status_store,
+                    }, device.dashboard_data or {})
 
-					for _, module in pairs(device.modules) do
-						noOfModules = noOfModules + 1
-						self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; device.last_status_store: '"..last_status_store.."'") -- MODIFIED
+                    for _, module in pairs(device.modules) do
+                        noOfModules = noOfModules + 1
+                        self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; device.last_status_store: '"..last_status_store.."'") -- MODIFIED
 
-						-- NEW
-						if module.last_seen > self.max_status_store then
-							self.max_status_store = module.last_seen
-						end
-						if module.last_message > self.max_status_store then
-							self.max_status_store = module.last_message
-						end
+                        -- NEW
+                        if module.last_seen > self.max_status_store then
+                            self.max_status_store = module.last_seen
+                        end
+                        if module.last_message > self.max_status_store then
+                            self.max_status_store = module.last_message
+                        end
 
-						-- NEW : Device dedicated to battery status
-						self:UpdateHCDevice(mode, {
-							id = module._id,
-							device_id = device._id,
-							name = module.module_name or "",
-							station_name = station_name,
-							reachable = module.reachable,
-							last_status_store = last_status_store,
-						}, {battery_percent=module.battery_percent})
+                        -- NEW : Device dedicated to battery status
+                        self:UpdateHCDevice(mode, {
+                            id = module._id,
+                            device_id = device._id,
+                            name = module.module_name or "",
+                            station_name = station_name,
+                            reachable = module.reachable,
+                            last_status_store = last_status_store,
+                        }, {battery_percent=module.battery_percent})
 
-						self:UpdateHCDevice(mode, {
-							id = module._id,
-							device_id = device._id,
-							name = module.module_name or "",
-							station_name = station_name,
-							reachable = module.reachable,
-							last_status_store = last_status_store,
-						}, module.dashboard_data or {})
-					end
+                        self:UpdateHCDevice(mode, {
+                            id = module._id,
+                            device_id = device._id,
+                            name = module.module_name or "",
+                            station_name = station_name,
+                            reachable = module.reachable,
+                            last_status_store = last_status_store,
+                        }, module.dashboard_data or {})
+                    end
 
-					Devices[station_name] = {
-						place = device.place.city..", "..device.place.country,
-						modules = noOfModules,
-						last_status_store = last_status_store
-					}
-				end
+                    Devices[station_name] = {
+                        place = device.place.city..", "..device.place.country,
+                        modules = noOfModules,
+                        last_status_store = last_status_store
+                    }
+                end
 
-				local label = "Found devices: "
-				local status = "Devices last seen: "
-				for station_name, data in pairs(Devices) do
-					label = label..station_name.." ("..data.place.."): "..data.modules
-					status = status..station_name..": "..data.last_status_store
-				end
-				self:updateView("label", "text", label)
-				self:updateView("status", "text", status)
-			else
-				self:error("Unknown error")
-			end
-		end 
-	)
+                local label = "Found devices: "
+                local status = "Devices last seen: "
+                for station_name, data in pairs(Devices) do
+                    label = label..station_name.." ("..data.place.."): "..data.modules
+                    status = status..station_name..": "..data.last_status_store
+                end
+                self:updateView("label", "text", label)
+                self:updateView("status", "text", status)
+            else
+                self:error("Unknown error")
+            end
+        end 
+    )
 end
 
 function QuickApp:CreateChilds(module, dashboard_data)
 --self:debug("QuickApp:CreateChilds(...)")
-	for data_type, value in pairs(dashboard_data) do
+    for data_type, value in pairs(dashboard_data) do
 --self:debug("data_type :", data_type, "- value :", value)
-		if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type] and
-			self.childDevices[self.devicesMap[module.id].devices_map[data_type]]) then
-			local hcID = self.devicesMap[module.id].devices_map[data_type]
-			child = self.childDevices[hcID]
-			self:trace("HC3 child device for '"..data_type.."' module EXISTS. Name: '"..child.name.."', id: '"..child.id.."', type: '"..child.type.."'")
-		else
-			local sensor_type = ""
-			local sensor_unit = ""
+        if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type] and
+            self.childDevices[self.devicesMap[module.id].devices_map[data_type]]) then
+            local hcID = self.devicesMap[module.id].devices_map[data_type]
+            child = self.childDevices[hcID]
+            self:trace("HC3 child device for '"..data_type.."' module EXISTS. Name: '"..child.name.."', id: '"..child.id.."', type: '"..child.type.."'")
+        else
+            local sensor_type = ""
+            local sensor_unit = ""
 
-			if (self.NetatmoTypesToHC3[data_type]) then
-				sensor_type = self.NetatmoTypesToHC3[data_type].type
-				if (self.NetatmoTypesToHC3[data_type].unit) then
-					sensor_unit = self.NetatmoTypesToHC3[data_type].unit
-				end
-			end
+            if (self.NetatmoTypesToHC3[data_type]) then
+                sensor_type = self.NetatmoTypesToHC3[data_type].type
+                if (self.NetatmoTypesToHC3[data_type].unit) then
+                    sensor_unit = self.NetatmoTypesToHC3[data_type].unit
+                end
+            end
 
-			if (sensor_type ~= "") then
-				local name = (self.NetatmoTypesToHC3[data_type].defaultName or data_type) .. " " .. (module.station_name or "") .. " " .. (module.name or "") -- NEW : User friendly name
-				local child = self:createChildDevice({
-					name = name,
-					type = sensor_type
-				}, MyNetatmoSensor)
+            if (sensor_type ~= "") then
+                local name = (self.NetatmoTypesToHC3[data_type].defaultName or data_type) .. " " .. (module.station_name or "") .. " " .. (module.name or "") -- NEW : User friendly name
+                local child = self:createChildDevice({
+                    name = name,
+                    type = sensor_type
+                }, MyNetatmoSensor)
 
-				if (child) then
-					if (sensor_unit ~= "") then
-						child:updateProperty("unit", sensor_unit)
-					end
+                if (child) then
+                    if (sensor_unit ~= "") then
+                        child:updateProperty("unit", sensor_unit)
+                    end
 
-					child:setVariable("module_id", module.id)
-					child:setVariable("device_id", module.device_id)
-					child:setVariable("data_type", data_type)
+                    child:setVariable("module_id", module.id)
+                    child:setVariable("device_id", module.device_id)
+                    child:setVariable("data_type", data_type)
 
-					-- NEW : Add battery interface
-					if (self.NetatmoTypesToHC3[data_type].interface) then
-						local function checkInterface(id, param)
-							local device = api.get('/devices/' .. tostring(id))
-							for _, interface in ipairs(device.interfaces) do
-								print(interface)
-								if interface == param then
-									return true
-								end
-							end
-							return false
-						end
-						if not checkInterface(child.id, self.NetatmoTypesToHC3[data_type].interface) then
-							self:debug("Add '" .. self.NetatmoTypesToHC3[data_type].interface .. "' interface to device")
-							child:addInterfaces({self.NetatmoTypesToHC3[data_type].interface})
-						end
-					end
+                    -- NEW : Add battery interface
+                    if (self.NetatmoTypesToHC3[data_type].interface) then
+                        local function checkInterface(id, param)
+                            local device = api.get('/devices/' .. tostring(id))
+                            for _, interface in ipairs(device.interfaces) do
+                                print(interface)
+                                if interface == param then
+                                    return true
+                                end
+                            end
+                            return false
+                        end
+                        if not checkInterface(child.id, self.NetatmoTypesToHC3[data_type].interface) then
+                            self:debug("Add '" .. self.NetatmoTypesToHC3[data_type].interface .. "' interface to device")
+                            child:addInterfaces({self.NetatmoTypesToHC3[data_type].interface})
+                        end
+                    end
 
-					value = self:valueConversion(value, data_type)
-					self:trace("HC3 child device for '"..data_type.."' module created. Name: '"..name.."', id: '"..child.id.."', type: '"..child.type.."'")
-					child:setValue(self.NetatmoTypesToHC3[data_type].value, value) -- NEW
-				end
-			else
-				--self:warning("Unsupported Netatmo sensor type: "..data_type)
-			end
-		end
-	end
+                    value = self:valueConversion(value, data_type)
+                    self:trace("HC3 child device for '"..data_type.."' module created. Name: '"..name.."', id: '"..child.id.."', type: '"..child.type.."'")
+                    child:setValue(self.NetatmoTypesToHC3[data_type].value, value) -- NEW
+                end
+            else
+                --self:warning("Unsupported Netatmo sensor type: "..data_type)
+            end
+        end
+    end
 end
 
 function QuickApp:parseDashboardData(module, dashboard_data)
 --self:debug("QuickApp:parseDashboardData(...)")
-	for data_type, value in pairs(dashboard_data) do
+    for data_type, value in pairs(dashboard_data) do
 --self:debug("data_type :", data_type, "- value :", value)
-		if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type]) then
-			local hcID = self.devicesMap[module.id].devices_map[data_type]
+        if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type]) then
+            local hcID = self.devicesMap[module.id].devices_map[data_type]
 
-			if (self.childDevices[hcID]) then
-				local child = self.childDevices[hcID]
-				value = self:valueConversion(value, data_type)
-				child:setValue("dead", not module.reachable) -- NEW
-				self:debug("SetValue '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."' on hcID: "..hcID.."; "..self.NetatmoTypesToHC3[data_type].value..": "..value) -- MODIFIED
-				child:setValue(self.NetatmoTypesToHC3[data_type].value, value) -- MODIFIED
-			else
-				self:error("Child "..hcID.." not exists!")
-			end
-		else
-			--self:debug("Nothing to do with '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."'")
-		end
-	end
+            if (self.childDevices[hcID]) then
+                local child = self.childDevices[hcID]
+                value = self:valueConversion(value, data_type)
+                child:setValue("dead", not module.reachable) -- NEW
+                self:debug("SetValue '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."' on hcID: "..hcID.."; "..self.NetatmoTypesToHC3[data_type].value..": "..value) -- MODIFIED
+                child:setValue(self.NetatmoTypesToHC3[data_type].value, value) -- MODIFIED
+            else
+                self:error("Child "..hcID.." not exists!")
+            end
+        else
+            --self:debug("Nothing to do with '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."'")
+        end
+    end
 end
 
 function QuickApp:UpdateHCDevice(mode, device_info, dashboard_data)
 --self:debug('QuickApp:UpdateHCDevice("' .. (mode or "nil") .. '", ...)')
-	-- MODIFIED
-	if mode == "create" then
-		if (device_info.reachable == true) then
-			self:CreateChilds(device_info, dashboard_data or {})
-		else
-			self:warning("Module '" .. (device_info.name or "???") .. "' isn't connected! Status was last updated on: " .. device_info.last_status_store)
-		end
-	else
-		if (device_info.reachable == false) then
-			self:warning("Module '" .. (device_info.name or "???") .. "' isn't connected! Status was last updated on: " .. device_info.last_status_store)
-			self:setDeadDevices(device_info)
-		end
-		self:parseDashboardData(device_info, dashboard_data or {})
-	end
+    -- MODIFIED
+    if mode == "create" then
+        if (device_info.reachable == true) then
+            self:CreateChilds(device_info, dashboard_data or {})
+        else
+            self:warning("Module '" .. (device_info.name or "???") .. "' isn't connected! Status was last updated on: " .. device_info.last_status_store)
+        end
+    else
+        if (device_info.reachable == false) then
+            self:warning("Module '" .. (device_info.name or "???") .. "' isn't connected! Status was last updated on: " .. device_info.last_status_store)
+            self:setDeadDevices(device_info)
+        end
+        self:parseDashboardData(device_info, dashboard_data or {})
+    end
 end
 
 function QuickApp:setDeadDevices(module) -- NEW
 --self:error("setDeadDevices()")
-	for _, hcID in pairs(self.devicesMap[module.id].devices_map) do
-		if (self.childDevices[hcID]) then
-			local child = self.childDevices[hcID]
-			child:setValue("dead", not module.reachable)
-		end
-	end
+    for _, hcID in pairs(self.devicesMap[module.id].devices_map) do
+        if (self.childDevices[hcID]) then
+            local child = self.childDevices[hcID]
+            child:setValue("dead", not module.reachable)
+        end
+    end
 end
 
 function QuickApp:oAuthNetatmo(func)
 --self:debug("QuickApp:oAuthNetatmo()")
-	if (self.username == "" or self.password == "" or self.client_id == "" or self.client_secret == "" or
-		self.username == "-" or self.password == "-" or self.client_id == "-" or self.client_secret == "-") then
-		self:error("Credentials data is empty!")
-		return 0
-	end
+    if (self.username == "" or self.password == "" or self.client_id == "" or self.client_secret == "" or
+        self.username == "-" or self.password == "-" or self.client_id == "-" or self.client_secret == "-") then
+        self:error("Credentials data is empty!")
+        return 0
+    end
 
-	local request_body = "grant_type=password&client_id="..self.client_id.."&client_secret="..self.client_secret.."&username="..self.username.."&password="..self.password.."&scope=read_station"
+    local request_body = "grant_type=password&client_id="..self.client_id.."&client_secret="..self.client_secret.."&username="..self.username.."&password="..self.password.."&scope=read_station"
 
-	self:getNetatmoResponseData("https://api.netatmo.net/oauth2/token", request_body,
-		function(data)
-			if (data.access_token ~= nil) then
-				--self:debug("netatmo-oAuth ok, token: "..data.access_token)
-				func(data.access_token)
-			else
-				self:error("Can't get token")
-			end
-		end
-	)
+    self:getNetatmoResponseData("https://api.netatmo.net/oauth2/token", request_body,
+        function(data)
+            if (data.access_token ~= nil) then
+                --self:debug("netatmo-oAuth ok, token: "..data.access_token)
+                func(data.access_token)
+            else
+                self:error("Can't get token")
+            end
+        end
+    )
 end
 
 function QuickApp:getNetatmoResponseData(url, body, func)
 --self:debug('QuickApp:getNetatmoResponseData("'..url..'", "'..body..'", ...)')
-	-- self:debug("HTTP url: "..url.."; body: "..body)
-	local http = net.HTTPClient()
-	http:request(url, {
-		options = {
-			method = "POST",
-			headers = {
-				['Content-Type'] = "application/x-www-form-urlencoded;charset=UTF-8"
-			},
-			data = body
-		},
-		success = function(response)
-			if (response.status == 200) then
-				-- self:debug("Response: "..json.encode(response))
-				func(json.decode(response.data))
-			else
-				-- self:debug("Response: "..json.encode(response))
-				self:error("Wrong status '"..response.status.."' in response!")
-			end
-		end,
-		error = function(message)
-			self:error("Connection error: " .. message)
-		end
-	})
+    -- self:debug("HTTP url: "..url.."; body: "..body)
+    local http = net.HTTPClient()
+    http:request(url, {
+        options = {
+            method = "POST",
+            headers = {
+                ['Content-Type'] = "application/x-www-form-urlencoded;charset=UTF-8"
+            },
+            data = body
+        },
+        success = function(response)
+            if (response.status == 200) then
+                -- self:debug("Response: "..json.encode(response))
+                func(json.decode(response.data))
+            else
+                -- self:debug("Response: "..json.encode(response))
+                self:error("Wrong status '"..response.status.."' in response!")
+            end
+        end,
+        error = function(message)
+            self:error("Connection error: " .. message)
+        end
+    })
 end
 
 
 -- Actions for buttons
 function QuickApp:GetDevices()
 --self:debug("QuickApp:GetDevices()")
-	self.devicesMap = self:buildDevicesMap()
-	self:oAuthNetatmo(function(token)
-		self:getNetatmoDevicesData(token, "create")
-	end)
+    self.devicesMap = self:buildDevicesMap()
+    self:oAuthNetatmo(function(token)
+        self:getNetatmoDevicesData(token, "create")
+    end)
 end
 
 function QuickApp:GetMeasurements()
 --self:debug("QuickApp:GetMeasurements()")
-	self.devicesMap = self:buildDevicesMap()
-	self:oAuthNetatmo(function(token)
-		self:getNetatmoDevicesData(token)
-	end)
+    self.devicesMap = self:buildDevicesMap()
+    self:oAuthNetatmo(function(token)
+        self:getNetatmoDevicesData(token)
+    end)
 end
 
 
@@ -492,74 +492,74 @@ end
 class 'MyNetatmoSensor' (QuickAppChild)
 
 function MyNetatmoSensor:__init(device)
-	QuickAppChild.__init(self, device)
+    QuickAppChild.__init(self, device)
 end
 
 function MyNetatmoSensor:setValue(name, value) -- NEW
-	--self:debug("child "..self.id.." updated value: "..value)
-	local oldValue = self.properties[name]
-	if value ~= oldValue then
-		self:trace("Update child #" .. self.id .. " '" .. self.name .. "' property '" .. name .. "' : old value = " .. tostring(oldValue) .. " => new value = " .. tostring(value))
-		self:updateProperty(name, value)
-		self:updateProperty("log", "Transfer_was_OK")
-		fibaro.setTimeout(2000, function() self:updateProperty("log", "") end)
-	end
+    --self:debug("child "..self.id.." updated value: "..value)
+    local oldValue = self.properties[name]
+    if value ~= oldValue then
+        self:trace("Update child #" .. self.id .. " '" .. self.name .. "' property '" .. name .. "' : old value = " .. tostring(oldValue) .. " => new value = " .. tostring(value))
+        self:updateProperty(name, value)
+        self:updateProperty("log", "Transfer_was_OK")
+        fibaro.setTimeout(2000, function() self:updateProperty("log", "") end)
+    end
 end
 
 function MyNetatmoSensor:getProperty(name) -- get value of property 'name'
-	local value = fibaro.getValue(self.id, name)
-	-- self:debug("child "..self.id.." unit value: "..unit)
-	return value
+    local value = fibaro.getValue(self.id, name)
+    -- self:debug("child "..self.id.." unit value: "..unit)
+    return value
 end
 
 
 -- Tools
 function QuickApp:valueConversion(value, data_type)
-	if (data_type and self.NetatmoTypesToHC3[data_type] and self.NetatmoTypesToHC3[data_type].conversion) then
-		conv_func = self.NetatmoTypesToHC3[data_type].conversion
-		value = conv_func(value)
-	end
-	return value
+    if (data_type and self.NetatmoTypesToHC3[data_type] and self.NetatmoTypesToHC3[data_type].conversion) then
+        conv_func = self.NetatmoTypesToHC3[data_type].conversion
+        value = conv_func(value)
+    end
+    return value
 end
 
 function QuickApp.getWindDirection(sValue)
-	-- return "-"
+    -- return "-"
 
-	if ((sValue >= 0) and (sValue <= 11)) then
-		return "N"
-	elseif ((sValue > 11) and (sValue <= 34)) then
-		return "NNE"
-	elseif ((sValue > 34) and (sValue <= 56)) then
-		return "NE"
-	elseif ((sValue > 56) and (sValue <= 79)) then
-		return "ENE"
-	elseif ((sValue > 79) and (sValue <= 101)) then
-		return "E"
-	elseif ((sValue > 101) and (sValue <= 124)) then
-		return "ESE"
-	elseif ((sValue > 124) and (sValue <= 146)) then
-		return "SE"
-	elseif ((sValue > 146) and (sValue <= 169)) then
-		return "SSE"
-	elseif ((sValue > 169) and (sValue <= 191)) then
-		return "S"
-	elseif ((sValue > 191) and (sValue <= 214)) then
-		return "SSW"
-	elseif ((sValue > 214) and (sValue <= 236)) then
-		return "SW"
-	elseif ((sValue > 236) and (sValue <= 259)) then
-		return "WSW"
-	elseif ((sValue > 259) and (sValue <= 281)) then
-		return "W"
-	elseif ((sValue > 281) and (sValue <= 304)) then
-		return "WNW"
-	elseif ((sValue > 304) and (sValue <= 326)) then
-		return "NW"
-	elseif ((sValue > 326) and (sValue <= 349)) then
-		return "NNW"
-	elseif ((sValue > 349) and (sValue <= 360)) then
-		return "N"
-	else
-		return "-"
-	end
+    if ((sValue >= 0) and (sValue <= 11)) then
+        return "N"
+    elseif ((sValue > 11) and (sValue <= 34)) then
+        return "NNE"
+    elseif ((sValue > 34) and (sValue <= 56)) then
+        return "NE"
+    elseif ((sValue > 56) and (sValue <= 79)) then
+        return "ENE"
+    elseif ((sValue > 79) and (sValue <= 101)) then
+        return "E"
+    elseif ((sValue > 101) and (sValue <= 124)) then
+        return "ESE"
+    elseif ((sValue > 124) and (sValue <= 146)) then
+        return "SE"
+    elseif ((sValue > 146) and (sValue <= 169)) then
+        return "SSE"
+    elseif ((sValue > 169) and (sValue <= 191)) then
+        return "S"
+    elseif ((sValue > 191) and (sValue <= 214)) then
+        return "SSW"
+    elseif ((sValue > 214) and (sValue <= 236)) then
+        return "SW"
+    elseif ((sValue > 236) and (sValue <= 259)) then
+        return "WSW"
+    elseif ((sValue > 259) and (sValue <= 281)) then
+        return "W"
+    elseif ((sValue > 281) and (sValue <= 304)) then
+        return "WNW"
+    elseif ((sValue > 304) and (sValue <= 326)) then
+        return "NW"
+    elseif ((sValue > 326) and (sValue <= 349)) then
+        return "NNW"
+    elseif ((sValue > 349) and (sValue <= 360)) then
+        return "N"
+    else
+        return "-"
+    end
 end
