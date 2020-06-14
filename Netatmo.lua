@@ -49,6 +49,17 @@ function QuickApp:onInit()
 			rain = "Rain",
 			module = "Module",
 		},
+		pl = {
+			temperature = "Temperatura",
+			humidity = "Wilgotność",
+			co2 = "CO2",
+			pressure = "Ciśnienie",
+			noise = "Hałas",
+			wind = "Wiatr",
+			gust = "Poryw",
+			rain = "Deszcz",
+			module = "Moduł",
+		},
 		fr = {
 			temperature = "Température",
 			humidity = "Humidité",
