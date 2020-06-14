@@ -72,7 +72,8 @@ function QuickApp:onInit()
             module = "Module",
         }
     }
-    self.language = (type(api) == "function") and api.get("/settings/info").defaultLanguage or nil
+
+    self.language = api.get("/settings/info").defaultLanguage or nil
     if not self.traduction[self.language] then self.language = "en" end
     self.trad = self.traduction[string.lower(self.language)]
 
@@ -117,10 +118,12 @@ function QuickApp:onInit()
             defaultName = self.trad.wind,
             value = "value",
             unit = "km/h",
-            --unit = "m/s",
-            --conversion = function(value)
-                --return value/3.6
-            --end
+--[[        -- if you would like to have 'm/s', rather than 'km/h', you need to uncomment these lines
+            unit = "m/s",
+            conversion = function(value)
+                return value/3.6
+            end
+]]--
         },
         -- Current 5 min average wind direction measured @ time_utc (in °)
         WindAngle = {
@@ -171,8 +174,6 @@ function QuickApp:onInit()
             value = "batteryLevel",
             interface = "battery",
         },
-    --[[    -- If more data is needed it is possible to add new child devices to react dashboard_data from Netatmo API
-    ]]--
     }
 
     self.max_status_store = 0
@@ -182,7 +183,7 @@ function QuickApp:onInit()
 end
 
 function QuickApp:loop() -- MODIFIED
---self:trace("QuickApp:loop()")
+    --self:trace("QuickApp:loop()")
     self.devicesMap = self:buildDevicesMap()
 
     self:oAuthNetatmo(function(token)
@@ -199,7 +200,7 @@ function QuickApp:loop() -- MODIFIED
 end
 
 function QuickApp:buildDevicesMap()
---self:debug("QuickApp:buildDevicesMap()")
+    --self:debug("QuickApp:buildDevicesMap()")
     local DM = {}
     for hcID,child in pairs(self.childDevices) do
         local module_id = child:getVariable("module_id")
@@ -220,12 +221,13 @@ end
 
 -- Getting Data based on one request: "getstationsdata"
 function QuickApp:getNetatmoDevicesData(token, mode)
---self:debug("QuickApp:getNetatmoDevicesData()")
+    --self:debug("QuickApp:getNetatmoDevicesData()")
     local request_body = "access_token=".. token
 
     self:getNetatmoResponseData("https://api.netatmo.net/api/getstationsdata", request_body, 
         function(getData) 
             -- self:debug("Getting stations data")
+            -- self:debug("Netatmo API Response: "..json.encode(getData))
             if (getData.error) then
                 self:error("Response error: " .. getData.error.message)
             elseif (getData.status == "ok" and getData.body) then
@@ -293,8 +295,8 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                 local label = "Found devices: "
                 local status = "Devices last seen: "
                 for station_name, data in pairs(Devices) do
-                    label = label..station_name.." ("..data.place.."): "..data.modules
-                    status = status..station_name..": "..data.last_status_store
+                    label = label..station_name.." ("..data.place.."): "..data.modules.."; "
+                    status = status..station_name..": "..data.last_status_store.."; "
                 end
                 self:updateView("label", "text", label)
                 self:updateView("status", "text", status)
@@ -306,9 +308,9 @@ function QuickApp:getNetatmoDevicesData(token, mode)
 end
 
 function QuickApp:CreateChilds(module, dashboard_data)
---self:debug("QuickApp:CreateChilds(...)")
+    --self:debug("QuickApp:CreateChilds(...)")
     for data_type, value in pairs(dashboard_data) do
---self:debug("data_type :", data_type, "- value :", value)
+        --self:debug("data_type :", data_type, "- value :", value)
         if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type] and
             self.childDevices[self.devicesMap[module.id].devices_map[data_type]]) then
             local hcID = self.devicesMap[module.id].devices_map[data_type]
@@ -371,9 +373,9 @@ function QuickApp:CreateChilds(module, dashboard_data)
 end
 
 function QuickApp:parseDashboardData(module, dashboard_data)
---self:debug("QuickApp:parseDashboardData(...)")
+    --self:debug("QuickApp:parseDashboardData(...)")
     for data_type, value in pairs(dashboard_data) do
---self:debug("data_type :", data_type, "- value :", value)
+        --self:debug("data_type :", data_type, "- value :", value)
         if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type]) then
             local hcID = self.devicesMap[module.id].devices_map[data_type]
 
@@ -392,10 +394,9 @@ function QuickApp:parseDashboardData(module, dashboard_data)
     end
 end
 
-function QuickApp:UpdateHCDevice(mode, device_info, dashboard_data)
---self:debug('QuickApp:UpdateHCDevice("' .. (mode or "nil") .. '", ...)')
-    -- MODIFIED
-    if mode == "create" then
+function QuickApp:UpdateHCDevice(mode, device_info, dashboard_data) -- MODIFIED
+    --self:debug('QuickApp:UpdateHCDevice("' .. (mode or "nil") .. '", ...)')
+    if (mode == "create") then
         if (device_info.reachable == true) then
             self:CreateChilds(device_info, dashboard_data or {})
         else
@@ -411,7 +412,7 @@ function QuickApp:UpdateHCDevice(mode, device_info, dashboard_data)
 end
 
 function QuickApp:setDeadDevices(module) -- NEW
---self:error("setDeadDevices()")
+    --self:error("setDeadDevices()")
     for _, hcID in pairs(self.devicesMap[module.id].devices_map) do
         if (self.childDevices[hcID]) then
             local child = self.childDevices[hcID]
@@ -421,10 +422,11 @@ function QuickApp:setDeadDevices(module) -- NEW
 end
 
 function QuickApp:oAuthNetatmo(func)
---self:debug("QuickApp:oAuthNetatmo()")
+    --self:debug("QuickApp:oAuthNetatmo()")
     if (self.username == "" or self.password == "" or self.client_id == "" or self.client_secret == "" or
         self.username == "-" or self.password == "-" or self.client_id == "-" or self.client_secret == "-") then
         self:error("Credentials data is empty!")
+        self:updateView("status", "text", "Credentials data is empty!")
         return 0
     end
 
@@ -444,7 +446,6 @@ end
 
 function QuickApp:getNetatmoResponseData(url, body, func)
 --self:debug('QuickApp:getNetatmoResponseData("'..url..'", "'..body..'", ...)')
-    -- self:debug("HTTP url: "..url.."; body: "..body)
     local http = net.HTTPClient()
     http:request(url, {
         options = {
@@ -472,7 +473,7 @@ end
 
 -- Actions for buttons
 function QuickApp:GetDevices()
---self:debug("QuickApp:GetDevices()")
+    --self:debug("QuickApp:GetDevices()")
     self.devicesMap = self:buildDevicesMap()
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token, "create")
@@ -480,7 +481,7 @@ function QuickApp:GetDevices()
 end
 
 function QuickApp:GetMeasurements()
---self:debug("QuickApp:GetMeasurements()")
+    --self:debug("QuickApp:GetMeasurements()")
     self.devicesMap = self:buildDevicesMap()
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token)
@@ -504,6 +505,11 @@ function MyNetatmoSensor:setValue(name, value) -- NEW
         self:updateProperty("log", "Transfer_was_OK")
         fibaro.setTimeout(2000, function() self:updateProperty("log", "") end)
     end
+end
+
+function MyNetatmoSensor:setIcon(icon)
+    -- self:debug("child "..self.id.." updated value: "..value)
+    self:updateProperty("deviceIcon", icon)
 end
 
 function MyNetatmoSensor:getProperty(name) -- get value of property 'name'
