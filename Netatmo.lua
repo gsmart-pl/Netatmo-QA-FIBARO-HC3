@@ -1,16 +1,29 @@
 -- HC3 Netatmo Weather Station QuickApp v2.3
 -- (c) 2020 GSmart Grzegorz Barcicki
 -- For questions and debug: grzegorz@gsmart.pl
--- Modified by Lazer 06/2020
+-- https://dev.netatmo.com/apidocumentation/weather
+--
 -- Changelog :
---  v2.3
+--  v2.3 - 06/2020 (Lazer)
 --    - New device types (Rain, Wind, Gust)
 --    - Add battery levels monitoring (use dedicated child devices)
 --    - Add alive module monitoring (use Netatmo reachable property to make Fibaro devices appearing dead in the interface)
 --    - Optimized 10 minutes query interval 10s after Netatmo cloud update
 --    - Minor fixes & enhancements
-
--- https://dev.netatmo.com/apidocumentation/weather
+--  v2.2 - 06/2020 (GSmart)
+--    - FIX: prevent crash when we doesn't get any data from Netatmo API
+--    - Added status info on main QA device
+--  v2.1 - 05/2020 (GSmart)
+--    - Added support for unit conversion, eg. km/h to m/s
+--    - Further enhancements in code
+--  v2.0 - 04/2020 (GSmart)
+--    - Completely redesigned
+--    - Getting all data in one request to Netatmo API
+--  v1.1 - 04/2020 (GSmart)
+--    - Added support for Wind and Rain modules
+--  v1.0 - 04/2020 (GSmart)
+--    - Initial release
+--    - Supported devices: Base station, Outdoor module, Indoor module
 
 function QuickApp:onInit()
     __TAG = "QA_NETATMO_" .. plugin.mainDeviceId -- NEW
