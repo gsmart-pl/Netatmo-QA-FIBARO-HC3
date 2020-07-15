@@ -1,9 +1,11 @@
--- HC3 Netatmo Weather Station QuickApp v2.4
+-- HC3 Netatmo Weather Station QuickApp v2.5
 -- (c) 2020 GSmart Grzegorz Barcicki
 -- For questions and debug: grzegorz@gsmart.pl
 -- https://dev.netatmo.com/apidocumentation/weather
 --
 -- Changelog :
+--  v2.5 - 07/2020 (Lazer)
+--    - Fix QuickApp crash in case weather station has no additional module
 --  v2.4 - 07/2020 (Lazer)
 --    - Add variable to choose between battery interface on dedicated child devices or directly on child devices
 --  v2.3 - 06/2020 (Lazer)
@@ -274,7 +276,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                         last_status_store = last_status_store,
                     }, device.dashboard_data or {})
 
-                    for _, module in pairs(device.modules) do
+                    for _, module in pairs(device.modules or {}) do
                         noOfModules = noOfModules + 1
                         self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; device.last_status_store: '"..last_status_store.."'")
 
