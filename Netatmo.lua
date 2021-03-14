@@ -1,9 +1,12 @@
--- HC3 Netatmo Weather Station QuickApp v2.5
+-- Netatmo Weather Station QuickApp
 -- (c) 2020 GSmart Grzegorz Barcicki
 -- For questions and debug: grzegorz@gsmart.pl
 -- https://dev.netatmo.com/apidocumentation/weather
 --
 -- Changelog :
+--  v2.5.1 - 03/2021 (GSmart+Lazer)
+--    - FIX QuickApp hang after HC3's upgrade to 5.063 (http:request closed in pcall)
+--    - Added Czech translation (thanks to petrkl12)
 --  v2.5 - 07/2020 (Lazer)
 --    - Fix QuickApp crash in case weather station has no additional module
 --  v2.4 - 07/2020 (Lazer)
@@ -29,11 +32,14 @@
 --    - Initial release
 --    - Supported devices: Base station, Outdoor module, Indoor module
 
+local QA_NAME = "Netatmo Weather Station QuickApp v2.5.1"
+
 function QuickApp:onInit()
     __TAG = "QA_NETATMO_" .. plugin.mainDeviceId
-    self:trace("")
-    self:trace("QuickApp Netatmo - Initialization")
-    self:trace("")
+    self:trace(QA_NAME.." - Initialization")
+
+    -- If you would like to view full response from Netatmo API change this value to true
+    self.api_response_debug = false
 
     -- Get QuickApp variables
     self.username      = self:getVariable("username")
@@ -92,7 +98,18 @@ function QuickApp:onInit()
             gust = "Rafales",
             rain = "Pluie",
             module = "Module",
-        }
+        },
+        cz = {
+            temperature = "Teplota",
+            humidity = "Vlhkost",
+            co2 = "CO2",
+            pressure = "Tlak",
+            noise = "Hluk",
+            wind = "Vítr",
+            gust = "Nárazový vítr",
+            rain = "Déšť",
+            module = "Modul"
+        },
     }
 
     self.language = api.get("/settings/info").defaultLanguage or nil
@@ -198,6 +215,7 @@ function QuickApp:onInit()
         },
     }
 
+    self.http = net.HTTPClient({timeout=10000})
     self.max_status_store = 0 -- Last data update timestamp
 
     -- Main loop
@@ -205,20 +223,19 @@ function QuickApp:onInit()
 end
 
 function QuickApp:loop()
-    --self:trace("QuickApp:loop()")
+    self:trace("QuickApp:loop()")
     self.devicesMap = self:buildDevicesMap()
-
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token)
     end)
 
-    -- Next refresh is 10s after next measurement
+    -- Next refresh is 10s after last measurement
     local currentTime = os.time()
-    local estimatedTime = self.max_status_store + 600 + 10
+    local estimatedTime = tonumber(self.max_status_store) + 600 + 10
     local optimizedDelay = estimatedTime - currentTime
     local waitDelay = (optimizedDelay > 0) and optimizedDelay or 30
-    self:debug("Current time : ", os.date("%H:%M:%S", currentTime), "- Last updated values : ", os.date("%H:%M:%S", self.max_status_store), " - Next loop in", waitDelay, "seconds at", os.date("%H:%M:%S", currentTime+waitDelay), "...")
-    fibaro.setTimeout(waitDelay*1000, function() self:loop() end)
+    self:trace("Current time : "..os.date("%H:%M:%S", currentTime).." - Last updated values : "..os.date("%H:%M:%S", self.max_status_store).." - Next loop in "..waitDelay.." seconds at "..os.date("%H:%M:%S", currentTime+waitDelay).."...")
+    fibaro.setTimeout(math.floor(waitDelay*1000), function() self:loop() end)
 end
 
 function QuickApp:buildDevicesMap()
@@ -248,8 +265,8 @@ function QuickApp:getNetatmoDevicesData(token, mode)
 
     self:getNetatmoResponseData("https://api.netatmo.net/api/getstationsdata", request_body, 
         function(getData) 
-            -- self:debug("Getting stations data")
-            -- self:debug("Netatmo API Response: "..json.encode(getData))
+            --self:debug("Getting stations data")
+            --self:debug("Netatmo API Response: "..json.encode(getData))
             if (getData.error) then
                 self:error("Response error: " .. getData.error.message)
             elseif (getData.status == "ok" and getData.body) then
@@ -355,7 +372,7 @@ function QuickApp:CreateChilds(module, dashboard_data)
         if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type] and self.childDevices[self.devicesMap[module.id].devices_map[data_type]]) then
             local hcID = self.devicesMap[module.id].devices_map[data_type]
             child = self.childDevices[hcID]
-            self:trace("HC3 child device for '"..data_type.."' module already EXISTS. Name: '"..child.name.."', id: '"..child.id.."', type: '"..child.type.."'")
+            self:warning("HC3 child device for '"..data_type.."' module already EXISTS. Name: '"..child.name.."', id: '"..child.id.."', type: '"..child.type.."'")
             -- Set unit if not already done
             if (sensor_unit ~= "") then
                 child:updateProperty("unit", sensor_unit)
@@ -410,7 +427,7 @@ function QuickApp:CreateChilds(module, dashboard_data)
                     end
 
                     value = self:valueConversion(value, data_type)
-                    self:trace("HC3 child device for '"..data_type.."' module created. Name: '"..name.."', id: '"..child.id.."', type: '"..child.type.."'")
+                    self:debug("HC3 child device for '"..data_type.."' module created. Name: '"..name.."', id: '"..child.id.."', type: '"..child.type.."'")
                     child:setValue(self.NetatmoTypesToHC3[data_type].value, value)
                 end
             else
@@ -498,9 +515,9 @@ function QuickApp:oAuthNetatmo(func)
 end
 
 function QuickApp:getNetatmoResponseData(url, body, func)
---self:debug('QuickApp:getNetatmoResponseData("'..url..'", "'..body..'", ...)')
-    local http = net.HTTPClient()
-    http:request(url, {
+    --self:debug('QuickApp:getNetatmoResponseData("'..url..'", "'..body..'", ...)')
+
+    ok,msg = pcall(function() self.http:request(url, {
         options = {
             method = "POST",
             headers = {
@@ -509,18 +526,27 @@ function QuickApp:getNetatmoResponseData(url, body, func)
             data = body
         },
         success = function(response)
+            if (self.api_response_debug) then self:debug("Response: "..json.encode(response)) end
             if (response.status == 200) then
-                -- self:debug("Response: "..json.encode(response))
-                func(json.decode(response.data))
+                local status,data = pcall(function() return json.decode(response.data) end)
+                if status then
+                    func(data)
+                else
+                    self:error("json.decode() failed")
+                    self:debug("Full response: "..json.encode(response))
+                end
             else
-                -- self:debug("Response: "..json.encode(response))
                 self:error("Wrong status '"..response.status.."' in response!")
             end
         end,
         error = function(message)
             self:error("Connection error: " .. message)
         end
-    })
+    }) end )
+
+    if (not ok) then
+        self:error("getNetatmoResponseData ERROR: "..msg.." - url: "..url)
+    end
 end
 
 
@@ -553,7 +579,7 @@ function MyNetatmoSensor:setValue(name, value)
     --self:debug("child "..self.id.." updated value: "..value)
     local oldValue = self.properties[name]
     if value ~= oldValue then
-        self:trace("Update child #" .. self.id .. " '" .. self.name .. "' property '" .. name .. "' : old value = " .. tostring(oldValue) .. " => new value = " .. tostring(value))
+        --self:debug("Update child #" .. self.id .. " '" .. self.name .. "' property '" .. name .. "' : old value = " .. tostring(oldValue) .. " => new value = " .. tostring(value))
         self:updateProperty(name, value)
         self:updateProperty("log", "Transfer_was_OK")
         fibaro.setTimeout(2000, function() self:updateProperty("log", "") end)
@@ -561,13 +587,13 @@ function MyNetatmoSensor:setValue(name, value)
 end
 
 function MyNetatmoSensor:setIcon(icon)
-    -- self:debug("child "..self.id.." updated value: "..value)
+    --self:debug("child "..self.id.." updated value: "..value)
     self:updateProperty("deviceIcon", icon)
 end
 
 function MyNetatmoSensor:getProperty(name) -- get value of property 'name'
     local value = fibaro.getValue(self.id, name)
-    -- self:debug("child "..self.id.." unit value: "..unit)
+    --self:debug("child "..self.id.." unit value: "..unit)
     return value
 end
 
@@ -582,8 +608,6 @@ function QuickApp:valueConversion(value, data_type)
 end
 
 function QuickApp.getWindDirection(sValue)
-    -- return "-"
-
     if ((sValue >= 0) and (sValue <= 11)) then
         return "N"
     elseif ((sValue > 11) and (sValue <= 34)) then
