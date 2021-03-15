@@ -1,5 +1,5 @@
 -- Netatmo Weather Station QuickApp
--- (c) 2020 GSmart Grzegorz Barcicki
+-- (c) 2020,2021 GSmart Grzegorz Barcicki
 -- For questions and debug: grzegorz@gsmart.pl
 -- https://dev.netatmo.com/apidocumentation/weather
 --
@@ -7,6 +7,7 @@
 --  v2.5.1 - 03/2021 (GSmart+Lazer)
 --    - FIX QuickApp hang after HC3's upgrade to 5.063 (http:request closed in pcall)
 --    - Added Czech translation (thanks to petrkl12)
+--    - Minor fixes & enhancements
 --  v2.5 - 07/2020 (Lazer)
 --    - Fix QuickApp crash in case weather station has no additional module
 --  v2.4 - 07/2020 (Lazer)
@@ -274,7 +275,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
 
                 for _, device in pairs(getData.body.devices) do
                     local station_name = device.station_name or ""
-                    local last_status_store = os.date ("%d.%m.%Y %H:%M:%S", device.last_status_store)
+                    local last_status_store = os.date ("%d.%m.%Y %H:%M:%S", device.last_status_store or 0)
                     local noOfModules = 1
 
                     self:debug("Found device: '"..device._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(device.module_name or "???").."'; type: '"..device.type.."'; device.last_status_store: '"..last_status_store.."'")
@@ -295,7 +296,8 @@ function QuickApp:getNetatmoDevicesData(token, mode)
 
                     for _, module in pairs(device.modules or {}) do
                         noOfModules = noOfModules + 1
-                        self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; device.last_status_store: '"..last_status_store.."'")
+                        local module_last_seen = os.date ("%d.%m.%Y %H:%M:%S", module.last_seen or 0)
+                        self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; module.last_seen: '"..module_last_seen.."'")
 
                         -- Last data update timestamp
                         if module.last_seen > self.max_status_store then
@@ -312,7 +314,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                             name = module.module_name or "",
                             station_name = station_name,
                             reachable = module.reachable,
-                            last_status_store = last_status_store,
+                            last_status_store = module_last_seen,
                         }
 
                         if module.battery_percent then
