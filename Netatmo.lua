@@ -535,10 +535,9 @@ function QuickApp:getNetatmoResponseData(url, body, func)
                     func(data)
                 else
                     self:error("json.decode() failed")
-                    self:debug("Full response: "..json.encode(response))
                 end
             else
-                self:error("Wrong status '"..response.status.."' in response!")
+                self:error("Wrong status '"..response.status.."' in response! Check credentials.")
             end
         end,
         error = function(message)
