@@ -352,6 +352,20 @@ function QuickApp:getNetatmoDevicesData(token, mode)
     )
 end
 
+-- Getting Measurements
+function QuickApp:getNetatmoMeasurements(token, type, timestamp_begin, timestamp_end)
+    --self:debug("QuickApp:getNetatmoMeasurements()")
+    local request_body = 'access_token='..token..'&device_id='..int_id..'&module_id='..rain_id..'&scale=1hour&type=sum_rain&real_time=true&date_begin='..now-duration
+
+
+    self:getNetatmoResponseData("https://api.netatmo.net/api/getmeasure", request_body, 
+        function(getData)
+
+
+        end
+    )
+end
+
 function QuickApp:addInterface(child, param)
     local device = api.get('/devices/' .. tostring(child.id))
     local found = false
