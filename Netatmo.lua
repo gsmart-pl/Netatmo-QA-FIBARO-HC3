@@ -278,7 +278,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                     local last_status_store = os.date ("%d.%m.%Y %H:%M:%S", device.last_status_store or 0)
                     local noOfModules = 1
 
-                    self:debug("Found device: '"..device._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(device.module_name or "???").."'; type: '"..device.type.."'; device.last_status_store: '"..last_status_store.."'")
+                    self:debug("Found device: '"..device._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(device.module_name or "???").."'; type: '"..device.type.."'; last_status_store: '"..last_status_store.."'")
 
                     -- Last data update timestamp
                     if device.last_status_store > self.max_status_store then
@@ -297,7 +297,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                     for _, module in pairs(device.modules or {}) do
                         noOfModules = noOfModules + 1
                         local module_last_seen = os.date ("%d.%m.%Y %H:%M:%S", module.last_seen or 0)
-                        self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; module.last_seen: '"..module_last_seen.."'")
+                        self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; last_seen: '"..module_last_seen.."'")
 
                         -- Last data update timestamp
                         if module.last_seen > self.max_status_store then
@@ -331,7 +331,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                     end
 
                     Devices[station_name] = {
-                        place = device.place.city..", "..device.place.country,
+                        place = (device.place.city or "?")..", "..(device.place.country or "?"),
                         modules = noOfModules,
                         last_status_store = last_status_store
                     }
@@ -468,16 +468,20 @@ function QuickApp:UpdateHCDevice(mode, device_info, dashboard_data)
     --self:debug('QuickApp:UpdateHCDevice("' .. (mode or "nil") .. '", ...)')
     if (mode == "create") then
         if (device_info.reachable == true) then
-            self:CreateChilds(device_info, dashboard_data or {})
+            local ok,msg = pcall(function() self:CreateChilds(device_info, dashboard_data or {}) end)
+            if not ok then self:error("CreateChilds() error: "..msg) end
         else
             self:warning("Module '" .. (device_info.name or "???") .. "' isn't connected! Status was last updated on: " .. device_info.last_status_store)
         end
     else
-        if (device_info.reachable == false) then
+        if (device_info.reachable == true) then
+            local ok,msg = pcall(function() self:parseDashboardData(device_info, dashboard_data or {}) end)
+            if not ok then self:error("parseDashboardData() error: "..msg) end
+        else    
             self:warning("Module '" .. (device_info.name or "???") .. "' isn't connected! Status was last updated on: " .. device_info.last_status_store)
-            self:setDeadDevices(device_info)
+            local ok,msg = pcall(function () self:setDeadDevices(device_info) end)
+            if not ok then self:error("setDeadDevices() error: "..msg) end
         end
-        self:parseDashboardData(device_info, dashboard_data or {})
     end
 end
 
@@ -490,6 +494,8 @@ function QuickApp:setDeadDevices(module)
                 child:setValue("dead", not module.reachable)
             end
         end
+    else
+        --self:debug("setDeadDevices(): devicesMap empty")
     end
 end
 
