@@ -40,7 +40,7 @@ function QuickApp:onInit()
     self:trace(QA_NAME.." - Initialization")
 
     -- If you would like to view full response from Netatmo API change this value to true
-    self.api_response_debug = false
+    self.api_response_debug = true
 
     -- Get QuickApp variables
     self.username      = self:getVariable("username")
@@ -207,6 +207,13 @@ function QuickApp:onInit()
             value = "value",
             unit = "mm",
         },
+        -- Measured rain in last 24 hours
+        sum_rain_last_24 = {
+            type = "com.fibaro.rainSensor",
+            defaultName = self.trad.rain .. " last 24h",
+            value = "value",
+            unit = "mm",                    
+        },
         -- Battery level (used only if battery_alone set to true)
         battery_percent = {
             type = "com.fibaro.genericDevice",
@@ -229,6 +236,14 @@ function QuickApp:loop()
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token)
     end)
+
+--[[
+    local curr_time = os.time()
+    local tm_begin = curr_time - 24 * 60 * 60
+    self:oAuthNetatmo(function(token)
+        self:getRainMeasurements(token, tm_begin, curr_time, "70:ee:50:15:f2:1e", "05:00:00:07:26:f4")
+    end)
+--]]
 
     -- Next refresh is 10s after last measurement
     local currentTime = os.time()
@@ -255,7 +270,7 @@ function QuickApp:buildDevicesMap()
         end
         DM[module_id].devices_map[data_type] = hcID
     end
-    -- self:debug("DevicesMap built from childs: "..json.encode(DM))
+    self:debug("DevicesMap built from childs: "..json.encode(DM))
     return(DM)
 end
 
@@ -317,6 +332,14 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                             last_status_store = module_last_seen,
                         }
 
+                        local dashboard_data = module.dashboard_data or {}
+                        if module.type == "NAModule3" then -- Rain; add measured data
+                            local curr_time = os.time()
+                            local tm_begin = curr_time - 24 * 60 * 60
+--                            self:getRainMeasurements(token, tm_begin, curr_time, device._id, module._id)
+                            dashboard_data.sum_rain_last_24 = 0;
+                        end
+
                         if module.battery_percent then
                             if self.battery_alone then
                                 -- Battery interface on dedicated child devices
@@ -326,7 +349,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                                 device_info.battery_percent = module.battery_percent
                             end
                         end
-                        self:UpdateHCDevice(mode, device_info, module.dashboard_data or {})
+                        self:UpdateHCDevice(mode, device_info, dashboard_data or {})
 
                     end
 
@@ -353,17 +376,41 @@ function QuickApp:getNetatmoDevicesData(token, mode)
 end
 
 -- Getting Measurements
-function QuickApp:getNetatmoMeasurements(token, type, timestamp_begin, timestamp_end)
+function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module_id)
     --self:debug("QuickApp:getNetatmoMeasurements()")
-    local request_body = 'access_token='..token..'&device_id='..int_id..'&module_id='..rain_id..'&scale=1hour&type=sum_rain&real_time=true&date_begin='..now-duration
-
+    local request_body = 'access_token='..token..'&device_id='..device_id..'&module_id='..module_id..'&scale=1hour&type=sum_rain&real_time=true&date_begin='..tm_begin
+    self:debug("getRainMeasurements: "..request_body)
 
     self:getNetatmoResponseData("https://api.netatmo.net/api/getmeasure", request_body, 
         function(getData)
+            if (getData.error) then
+                self:error("Response error: " .. getData.error.message)
+            elseif (getData.status == "ok" and getData.body) then
+                local values = getData.body[1].value or {}
+                local sum_rain = 0
 
+                for _,val in ipairs(values) do
+                    self:debug("sum_rain value: "..val[1])
+                    sum_rain = sum_rain + tonumber(val[1])
+                end
 
+                local device_info = {
+                    id = module_id,
+                    device_id = device_id,
+                    reachable = true,
+                    last_status_store = os.time()
+                }
+
+                local dashboard_data = {
+                    sum_rain_last_24 = sum_rain,
+                }
+
+                self:debug("sum_rain: "..sum_rain)
+                self:UpdateHCDevice("update", device_info, dashboard_data)
+            end
         end
     )
+    return sum_rain
 end
 
 function QuickApp:addInterface(child, param)
@@ -454,14 +501,17 @@ function QuickApp:CreateChilds(module, dashboard_data)
 end
 
 function QuickApp:parseDashboardData(module, dashboard_data)
-    --self:debug("QuickApp:parseDashboardData(...)")
+    self:debug("QuickApp:parseDashboardData(...)")
     for data_type, value in pairs(dashboard_data) do
-        --self:debug("data_type :", data_type, "- value :", value)
+        self:debug("data_type :", data_type, "- value :", value, "- module :", module.id)
         if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type]) then
             local hcID = self.devicesMap[module.id].devices_map[data_type]
+            self:debug("hcID: "..hcID)
 
             if (self.childDevices[hcID]) then
+                self:debug("in parsedashboard data_type :", data_type, "- value :", value, "- module :", module.id)
                 local child = self.childDevices[hcID]
+                self:debug("in parsedashboard data_type :", data_type, "- value :", value, "- module :", module.id, "- child :", child)
                 value = self:valueConversion(value, data_type)
                 child:setValue("dead", not module.reachable)
                 self:debug("SetValue '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."' on hcID: "..hcID.."; "..self.NetatmoTypesToHC3[data_type].value..": "..value)
@@ -473,7 +523,7 @@ function QuickApp:parseDashboardData(module, dashboard_data)
                 self:error("Child "..hcID.." not exists!")
             end
         else
-            --self:debug("Nothing to do with '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."'")
+            self:debug("Nothing to do with '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."'")
         end
     end
 end
