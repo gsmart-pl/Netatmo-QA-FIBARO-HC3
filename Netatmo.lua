@@ -1,5 +1,5 @@
 -- Netatmo Weather Station QuickApp
--- (c) 2020,2021 GSmart Grzegorz Barcicki
+-- (c) 2020-2022 GSmart Grzegorz Barcicki
 -- For questions and debug: grzegorz@gsmart.pl
 -- https://dev.netatmo.com/apidocumentation/weather
 --
