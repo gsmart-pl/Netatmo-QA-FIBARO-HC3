@@ -1,9 +1,11 @@
 -- Netatmo Weather Station QuickApp
 -- (c) 2020-2022 GSmart Grzegorz Barcicki
--- For questions and debug: grzegorz@gsmart.pl
--- https://dev.netatmo.com/apidocumentation/weather
+-- For questions and debug, email me: grzegorz@gsmart.pl
+-- To generate access tokens please visit my site: https://gsmart.pl/netatmo/
 --
--- Changelog :
+-- Changelog:
+--  v2.6 - 09/2022 (GSmart)
+--    - changed aouthorization method with Netatmo API (required by Netatmo servers)
 --  v2.5.1 - 03/2021 (GSmart+Lazer)
 --    - FIX QuickApp hang after HC3's upgrade to 5.063 (http:request closed in pcall)
 --    - Added Czech translation (thanks to petrkl12)
@@ -33,7 +35,7 @@
 --    - Initial release
 --    - Supported devices: Base station, Outdoor module, Indoor module
 
-local QA_NAME = "Netatmo Weather Station QuickApp v2.5.1"
+local QA_NAME = "Netatmo Weather Station QuickApp v2.6"
 
 function QuickApp:onInit()
     __TAG = "QA_NETATMO_" .. plugin.mainDeviceId
@@ -43,10 +45,8 @@ function QuickApp:onInit()
     self.api_response_debug = false
 
     -- Get QuickApp variables
-    self.username      = self:getVariable("username")
-    self.password      = self:getVariable("password")
-    self.client_id     = self:getVariable("client_id")
-    self.client_secret = self:getVariable("client_secret")
+    self.access_token  = self:getVariable("access_token")
+    self.refresh_token = self:getVariable("refresh_token")
     if string.lower(self:getVariable("battery_alone")) == "true" then
         self.battery_alone = true
     end
@@ -501,19 +501,34 @@ end
 
 function QuickApp:oAuthNetatmo(func)
     --self:debug("QuickApp:oAuthNetatmo()")
-    if (self.username == "" or self.password == "" or self.client_id == "" or self.client_secret == "" or
-        self.username == "-" or self.password == "-" or self.client_id == "-" or self.client_secret == "-") then
+    if (self.access_token == "" or self.refresh_token == "" or
+        self.access_token == "-" or self.refresh_token == "-") then
         self:error("Credentials data is empty!")
         self:updateView("status", "text", "Credentials data is empty!")
         return 0
     end
 
-    local request_body = "grant_type=password&client_id="..self.client_id.."&client_secret="..self.client_secret.."&username="..self.username.."&password="..self.password.."&scope=read_station"
+    self.client_id = "63309dd3efa656fec30b3e84"
+    self.client_secret = "UQjuVwQ0mZJn7u1KdtBwXgwlgM2C0"
+
+    local request_body = "grant_type=refresh_token&client_id="..self.client_id.."&client_secret="..self.client_secret.."&refresh_token="..self.refresh_token
 
     self:getNetatmoResponseData("https://api.netatmo.net/oauth2/token", request_body,
         function(data)
-            if (data.access_token ~= nil) then
-                --self:debug("netatmo-oAuth ok, token: "..data.access_token)
+            if (data.access_token ~= nil) then    
+                if (self.access_token ~= data.access_token) then
+                    self:setVariable("access_token", data.access_token) 
+                    self.access_token = data.access_token
+                    self.warning("access_token has changed")
+                end
+
+                if (self.refresh_token ~= data.refresh_token) then
+                    self:setVariable("refresh_token", data.refresh_token) 
+                    self.refresh_token = data.refresh_token
+                    self.warning("refresh_token has changed")
+                end
+
+                self:debug("netatmo-oAuth ok, access_token: "..data.access_token..", refresh_token: "..data.refresh_token)
                 func(data.access_token)
             else
                 self:error("Can't get token")
