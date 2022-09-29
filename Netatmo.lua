@@ -5,7 +5,7 @@
 --
 -- Changelog:
 --  v2.6 - 09/2022 (GSmart)
---    - changed aouthorization method with Netatmo API (required by Netatmo servers)
+--    - changed authorization method with Netatmo API (required by Netatmo servers)
 --  v2.5.1 - 03/2021 (GSmart+Lazer)
 --    - FIX QuickApp hang after HC3's upgrade to 5.063 (http:request closed in pcall)
 --    - Added Czech translation (thanks to petrkl12)
@@ -212,7 +212,7 @@ function QuickApp:onInit()
             type = "com.fibaro.rainSensor",
             defaultName = self.trad.rain .. " last 24h",
             value = "value",
-            unit = "mm",                    
+            unit = "mm",
         },
         -- Battery level (used only if battery_alone set to true)
         battery_percent = {
@@ -223,6 +223,9 @@ function QuickApp:onInit()
         },
     }
 
+    self.measurements = {
+        sum_rain_last_24 = {}
+    }
     self.http = net.HTTPClient({timeout=10000})
     self.max_status_store = 0 -- Last data update timestamp
 
@@ -236,14 +239,6 @@ function QuickApp:loop()
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token)
     end)
-
---[[
-    local curr_time = os.time()
-    local tm_begin = curr_time - 24 * 60 * 60
-    self:oAuthNetatmo(function(token)
-        self:getRainMeasurements(token, tm_begin, curr_time, "70:ee:50:15:f2:1e", "05:00:00:07:26:f4")
-    end)
---]]
 
     -- Next refresh is 10s after last measurement
     local currentTime = os.time()
@@ -334,10 +329,11 @@ function QuickApp:getNetatmoDevicesData(token, mode)
 
                         local dashboard_data = module.dashboard_data or {}
                         if module.type == "NAModule3" then -- Rain; add measured data
-                            local curr_time = os.time()
-                            local tm_begin = curr_time - 24 * 60 * 60
---                            self:getRainMeasurements(token, tm_begin, curr_time, device._id, module._id)
-                            dashboard_data.sum_rain_last_24 = 0;
+                            dashboard_data.sum_rain_last_24 = 0
+                            self.measurements.sum_rain_last_24 = {
+                                device_id = device._id,
+                                module_id = module._id
+                            }
                         end
 
                         if module.battery_percent then
@@ -377,7 +373,7 @@ end
 
 -- Getting Measurements
 function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module_id)
-    --self:debug("QuickApp:getNetatmoMeasurements()")
+    self:debug("QuickApp:getNetatmoMeasurements()")
     local request_body = 'access_token='..token..'&device_id='..device_id..'&module_id='..module_id..'&scale=1hour&type=sum_rain&real_time=true&date_begin='..tm_begin
     self:debug("getRainMeasurements: "..request_body)
 
@@ -396,6 +392,7 @@ function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module
 
                 local device_info = {
                     id = module_id,
+                    name = "Raaaain",
                     device_id = device_id,
                     reachable = true,
                     last_status_store = os.time()
@@ -509,9 +506,8 @@ function QuickApp:parseDashboardData(module, dashboard_data)
             self:debug("hcID: "..hcID)
 
             if (self.childDevices[hcID]) then
-                self:debug("in parsedashboard data_type :", data_type, "- value :", value, "- module :", module.id)
+                self:debug("in parsedashboard data_type: "..data_type..", value: "..value..", module: "..module.id)
                 local child = self.childDevices[hcID]
-                self:debug("in parsedashboard data_type :", data_type, "- value :", value, "- module :", module.id, "- child :", child)
                 value = self:valueConversion(value, data_type)
                 child:setValue("dead", not module.reachable)
                 self:debug("SetValue '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."' on hcID: "..hcID.."; "..self.NetatmoTypesToHC3[data_type].value..": "..value)
@@ -651,6 +647,20 @@ function QuickApp:GetMeasurements()
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token)
     end)
+
+    if (type(self.measurements.sum_rain_last_24) == "table" and self.measurements.sum_rain_last_24.device_id) then
+        local device_id = self.measurements.sum_rain_last_24.device_id
+        local module_id = self.measurements.sum_rain_last_24.module_id
+
+        local curr_time = os.time()
+        local tm_begin = curr_time - 24 * 60 * 60
+        
+        self:oAuthNetatmo(function(token)
+            self:getRainMeasurements(token, tm_begin, curr_time, device_id, module_id)
+        end)
+    else
+        self:warning("Can't find Rain module")
+    end
 end
 
 
