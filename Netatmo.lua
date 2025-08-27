@@ -4,6 +4,8 @@
 -- To generate access tokens please visit my site: https://gsmart.pl/netatmo/
 --
 -- Changelog:
+--  v2.6.1 - 08/2025 (GSmart)
+--    - changed netatmo api domain name (required by Netatmo servers)
 --  v2.6 - 09/2022 (GSmart)
 --    - changed aouthorization method with Netatmo API (required by Netatmo servers)
 --  v2.5.1 - 03/2021 (GSmart+Lazer)
@@ -35,7 +37,7 @@
 --    - Initial release
 --    - Supported devices: Base station, Outdoor module, Indoor module
 
-local QA_NAME = "Netatmo Weather Station QuickApp v2.6"
+local QA_NAME = "Netatmo Weather Station QuickApp v2.6.1"
 
 function QuickApp:onInit()
     __TAG = "QA_NETATMO_" .. plugin.mainDeviceId
@@ -264,7 +266,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
     --self:debug("QuickApp:getNetatmoDevicesData()")
     local request_body = "access_token=".. token
 
-    self:getNetatmoResponseData("https://api.netatmo.net/api/getstationsdata", request_body, 
+    self:getNetatmoResponseData("https://api.netatmo.com/api/getstationsdata", request_body, 
         function(getData) 
             --self:debug("Getting stations data")
             --self:debug("Netatmo API Response: "..json.encode(getData))
@@ -513,7 +515,7 @@ function QuickApp:oAuthNetatmo(func)
 
     local request_body = "grant_type=refresh_token&client_id="..self.client_id.."&client_secret="..self.client_secret.."&refresh_token="..self.refresh_token
 
-    self:getNetatmoResponseData("https://api.netatmo.net/oauth2/token", request_body,
+    self:getNetatmoResponseData("https://api.netatmo.com/oauth2/token", request_body,
         function(data)
             if (data.access_token ~= nil) then    
                 if (self.access_token ~= data.access_token) then
