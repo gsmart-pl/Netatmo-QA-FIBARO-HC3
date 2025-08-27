@@ -236,10 +236,12 @@ end
 function QuickApp:loop()
     self:trace("QuickApp:loop()")
     self.devicesMap = self:buildDevicesMap()
+    self:GetMeasurements()
+--[[    
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token)
     end)
-
+--]]
     -- Next refresh is 10s after last measurement
     local currentTime = os.time()
     local estimatedTime = tonumber(self.max_status_store) + 600 + 10
@@ -274,10 +276,10 @@ function QuickApp:getNetatmoDevicesData(token, mode)
     --self:debug("QuickApp:getNetatmoDevicesData()")
     local request_body = "access_token=".. token
 
-    self:getNetatmoResponseData("https://api.netatmo.net/api/getstationsdata", request_body, 
+    self:getNetatmoResponseData("https://api.netatmo.com/api/getstationsdata", request_body, 
         function(getData) 
-            --self:debug("Getting stations data")
-            --self:debug("Netatmo API Response: "..json.encode(getData))
+            self:debug("Getting stations data")
+            self:debug("Netatmo API Response: "..json.encode(getData))
             if (getData.error) then
                 self:error("Response error: " .. getData.error.message)
             elseif (getData.status == "ok" and getData.body) then
@@ -288,7 +290,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                     local last_status_store = os.date ("%d.%m.%Y %H:%M:%S", device.last_status_store or 0)
                     local noOfModules = 1
 
-                    self:debug("Found device: '"..device._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(device.module_name or "???").."'; type: '"..device.type.."'; last_status_store: '"..last_status_store.."'")
+                    --self:debug("Found device: '"..device._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(device.module_name or "???").."'; type: '"..device.type.."'; last_status_store: '"..last_status_store.."'")
 
                     -- Last data update timestamp
                     if device.last_status_store > self.max_status_store then
@@ -307,7 +309,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
                     for _, module in pairs(device.modules or {}) do
                         noOfModules = noOfModules + 1
                         local module_last_seen = os.date ("%d.%m.%Y %H:%M:%S", module.last_seen or 0)
-                        self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; last_seen: '"..module_last_seen.."'")
+                        --self:debug("Found module: '"..module._id.."'; station_name: '"..(device.station_name or "???").."'; module_name: '"..(module.module_name or "???").."'; type: '"..module.type.."'; last_seen: '"..module_last_seen.."'")
 
                         -- Last data update timestamp
                         if module.last_seen > self.max_status_store then
@@ -329,7 +331,10 @@ function QuickApp:getNetatmoDevicesData(token, mode)
 
                         local dashboard_data = module.dashboard_data or {}
                         if module.type == "NAModule3" then -- Rain; add measured data
-                            dashboard_data.sum_rain_last_24 = 0
+                            local curr_time = os.time()
+                            local tm_begin = curr_time - 24 * 60 * 60
+                            dashboard_data.sum_rain_last_24 = 0;
+                            self:getRainMeasurements(token, tm_begin, curr_time, device._id, module._id)
                             self.measurements.sum_rain_last_24 = {
                                 device_id = device._id,
                                 module_id = module._id
@@ -382,17 +387,19 @@ function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module
             if (getData.error) then
                 self:error("Response error: " .. getData.error.message)
             elseif (getData.status == "ok" and getData.body) then
-                local values = getData.body[1].value or {}
                 local sum_rain = 0
 
-                for _,val in ipairs(values) do
-                    self:debug("sum_rain value: "..val[1])
-                    sum_rain = sum_rain + tonumber(val[1])
+                for k, v in ipairs(getData.body) do
+                    local values = getData.body[k].value or {}
+
+                    for _,val in ipairs(values) do
+                        self:debug("sum_rain value: "..val[1])
+                        sum_rain = sum_rain + tonumber(val[1])
+                    end
                 end
 
                 local device_info = {
                     id = module_id,
-                    name = "Raaaain",
                     device_id = device_id,
                     reachable = true,
                     last_status_store = os.time()
@@ -407,7 +414,7 @@ function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module
             end
         end
     )
-    return sum_rain
+--    return sum_rain
 end
 
 function QuickApp:addInterface(child, param)
@@ -500,17 +507,17 @@ end
 function QuickApp:parseDashboardData(module, dashboard_data)
     self:debug("QuickApp:parseDashboardData(...)")
     for data_type, value in pairs(dashboard_data) do
-        self:debug("data_type :", data_type, "- value :", value, "- module :", module.id)
+        --self:debug("data_type :", data_type, "- value :", value, "- module :", module.id)
         if (type(self.devicesMap[module.id]) == "table" and self.devicesMap[module.id].devices_map[data_type]) then
             local hcID = self.devicesMap[module.id].devices_map[data_type]
-            self:debug("hcID: "..hcID)
+            --self:debug("hcID: "..hcID)
 
             if (self.childDevices[hcID]) then
-                self:debug("in parsedashboard data_type: "..data_type..", value: "..value..", module: "..module.id)
+                --self:debug("in parsedashboard data_type: "..data_type..", value: "..value..", module: "..module.id)
                 local child = self.childDevices[hcID]
                 value = self:valueConversion(value, data_type)
                 child:setValue("dead", not module.reachable)
-                self:debug("SetValue '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..module.name.."' on hcID: "..hcID.."; "..self.NetatmoTypesToHC3[data_type].value..": "..value)
+                --self:debug("SetValue '"..data_type.."' from module '"..(module.station_name or "???").."'/'"..(module.name or "???").."' on hcID: "..hcID.."; "..self.NetatmoTypesToHC3[data_type].value..": "..value)
                 child:setValue(self.NetatmoTypesToHC3[data_type].value, value)
                 if module.battery_percent then
                     child:setValue("batteryLevel", module.battery_percent)
@@ -560,7 +567,7 @@ function QuickApp:setDeadDevices(module)
 end
 
 function QuickApp:oAuthNetatmo(func)
-    --self:debug("QuickApp:oAuthNetatmo()")
+    self:debug("QuickApp:oAuthNetatmo()")
     if (self.access_token == "" or self.refresh_token == "" or
         self.access_token == "-" or self.refresh_token == "-") then
         self:error("Credentials data is empty!")
@@ -573,19 +580,21 @@ function QuickApp:oAuthNetatmo(func)
 
     local request_body = "grant_type=refresh_token&client_id="..self.client_id.."&client_secret="..self.client_secret.."&refresh_token="..self.refresh_token
 
+    self:debug("Current access_token: "..self.access_token..", refresh_token: "..self.refresh_token)
+
     self:getNetatmoResponseData("https://api.netatmo.net/oauth2/token", request_body,
         function(data)
             if (data.access_token ~= nil) then    
                 if (self.access_token ~= data.access_token) then
                     self:setVariable("access_token", data.access_token) 
                     self.access_token = data.access_token
-                    self.warning("access_token has changed")
+                    self:warning("access_token has changed")
                 end
 
                 if (self.refresh_token ~= data.refresh_token) then
                     self:setVariable("refresh_token", data.refresh_token) 
                     self.refresh_token = data.refresh_token
-                    self.warning("refresh_token has changed")
+                    self:warning("refresh_token has changed")
                 end
 
                 self:debug("netatmo-oAuth ok, access_token: "..data.access_token..", refresh_token: "..data.refresh_token)
@@ -642,12 +651,12 @@ function QuickApp:GetDevices()
 end
 
 function QuickApp:GetMeasurements()
-    --self:debug("QuickApp:GetMeasurements()")
+    self:debug("QuickApp:GetMeasurements()")
     self.devicesMap = self:buildDevicesMap()
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token)
     end)
-
+--[[
     if (type(self.measurements.sum_rain_last_24) == "table" and self.measurements.sum_rain_last_24.device_id) then
         local device_id = self.measurements.sum_rain_last_24.device_id
         local module_id = self.measurements.sum_rain_last_24.module_id
@@ -661,6 +670,7 @@ function QuickApp:GetMeasurements()
     else
         self:warning("Can't find Rain module")
     end
+--]]
 end
 
 
