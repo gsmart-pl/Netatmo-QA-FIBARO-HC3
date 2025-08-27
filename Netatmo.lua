@@ -35,14 +35,14 @@
 --    - Initial release
 --    - Supported devices: Base station, Outdoor module, Indoor module
 
-local QA_NAME = "Netatmo Weather Station QuickApp v2.6"
+local QA_NAME = "Netatmo Weather Station QuickApp v2.7"
 
 function QuickApp:onInit()
     __TAG = "QA_NETATMO_" .. plugin.mainDeviceId
     self:trace(QA_NAME.." - Initialization")
 
     -- If you would like to view full response from Netatmo API change this value to true
-    self.api_response_debug = true
+    self.api_response_debug = false
 
     -- Get QuickApp variables
     self.access_token  = self:getVariable("access_token")
@@ -237,11 +237,7 @@ function QuickApp:loop()
     self:trace("QuickApp:loop()")
     self.devicesMap = self:buildDevicesMap()
     self:GetMeasurements()
---[[    
-    self:oAuthNetatmo(function(token)
-        self:getNetatmoDevicesData(token)
-    end)
---]]
+
     -- Next refresh is 10s after last measurement
     local currentTime = os.time()
     local estimatedTime = tonumber(self.max_status_store) + 600 + 10
@@ -382,7 +378,7 @@ function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module
     local request_body = 'access_token='..token..'&device_id='..device_id..'&module_id='..module_id..'&scale=1hour&type=sum_rain&real_time=true&date_begin='..tm_begin
     self:debug("getRainMeasurements: "..request_body)
 
-    self:getNetatmoResponseData("https://api.netatmo.net/api/getmeasure", request_body, 
+    self:getNetatmoResponseData("https://api.netatmo.com/api/getmeasure", request_body, 
         function(getData)
             if (getData.error) then
                 self:error("Response error: " .. getData.error.message)
@@ -393,7 +389,7 @@ function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module
                     local values = getData.body[k].value or {}
 
                     for _,val in ipairs(values) do
-                        self:debug("sum_rain value: "..val[1])
+                        -- self:debug("sum_rain value: "..val[1])
                         sum_rain = sum_rain + tonumber(val[1])
                     end
                 end
@@ -409,7 +405,7 @@ function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module
                     sum_rain_last_24 = sum_rain,
                 }
 
-                self:debug("sum_rain: "..sum_rain)
+                -- self:debug("sum_rain: "..sum_rain)
                 self:UpdateHCDevice("update", device_info, dashboard_data)
             end
         end
@@ -582,7 +578,7 @@ function QuickApp:oAuthNetatmo(func)
 
     self:debug("Current access_token: "..self.access_token..", refresh_token: "..self.refresh_token)
 
-    self:getNetatmoResponseData("https://api.netatmo.net/oauth2/token", request_body,
+    self:getNetatmoResponseData("https://api.netatmo.com/oauth2/token", request_body,
         function(data)
             if (data.access_token ~= nil) then    
                 if (self.access_token ~= data.access_token) then
