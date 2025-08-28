@@ -1,7 +1,8 @@
 -- Netatmo Weather Station QuickApp
--- (c) 2020-2022 GSmart Grzegorz Barcicki
+-- (c) 2020-2025 GSmart Grzegorz Barcicki
 -- For questions and debug, email me: grzegorz@gsmart.pl
 -- To generate access tokens please visit my site: https://gsmart.pl/netatmo/
+-- If you would like to donate my work please visit: https://www.paypal.com/donate/?hosted_button_id=TZCWA5GM8T5XC
 --
 -- Changelog:
 --  v2.6.1 - 08/2025 (GSmart)
