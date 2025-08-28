@@ -5,6 +5,8 @@
 -- If you would like to donate my work please visit: https://www.paypal.com/donate/?hosted_button_id=TZCWA5GM8T5XC
 --
 -- Changelog:
+--  v2.6.1 - 08/2025 (GSmart)
+--    - changed netatmo api domain name (required by Netatmo servers)
 --  v2.6 - 09/2022 (GSmart)
 --    - changed authorization method with Netatmo API (required by Netatmo servers)
 --  v2.5.1 - 03/2021 (GSmart+Lazer)
@@ -36,7 +38,7 @@
 --    - Initial release
 --    - Supported devices: Base station, Outdoor module, Indoor module
 
-local QA_NAME = "Netatmo Weather Station QuickApp v2.7"
+local QA_NAME = "Netatmo Weather Station QuickApp v2.6.1"
 
 function QuickApp:onInit()
     __TAG = "QA_NETATMO_" .. plugin.mainDeviceId
