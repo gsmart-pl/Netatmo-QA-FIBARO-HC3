@@ -275,7 +275,7 @@ function QuickApp:getNetatmoDevicesData(token, mode)
     self:getNetatmoResponseData("https://api.netatmo.com/api/getstationsdata", request_body, 
         function(getData) 
             self:debug("Getting stations data")
-            self:debug("Netatmo API Response: "..json.encode(getData))
+
             if (getData.error) then
                 self:error("Response error: " .. getData.error.message)
             elseif (getData.status == "ok" and getData.body) then
@@ -376,7 +376,7 @@ end
 function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module_id)
     self:debug("QuickApp:getNetatmoMeasurements()")
     local request_body = 'access_token='..token..'&device_id='..device_id..'&module_id='..module_id..'&scale=1hour&type=sum_rain&real_time=true&date_begin='..tm_begin
-    self:debug("getRainMeasurements: "..request_body)
+    if (self.api_response_debug) then self:debug("getRainMeasurements: "..request_body) end
 
     self:getNetatmoResponseData("https://api.netatmo.com/api/getmeasure", request_body, 
         function(getData)
@@ -410,7 +410,7 @@ function QuickApp:getRainMeasurements(token, tm_begin, tm_end, device_id, module
             end
         end
     )
---    return sum_rain
+
 end
 
 function QuickApp:addInterface(child, param)
@@ -578,7 +578,7 @@ function QuickApp:oAuthNetatmo(func)
 
     self:debug("Current access_token: "..self.access_token..", refresh_token: "..self.refresh_token)
 
-    self:getNetatmoResponseData("https://api.netatmo.com/oauth2/token", request_body,
+
         function(data)
             if (data.access_token ~= nil) then    
                 if (self.access_token ~= data.access_token) then
@@ -652,21 +652,7 @@ function QuickApp:GetMeasurements()
     self:oAuthNetatmo(function(token)
         self:getNetatmoDevicesData(token)
     end)
---[[
-    if (type(self.measurements.sum_rain_last_24) == "table" and self.measurements.sum_rain_last_24.device_id) then
-        local device_id = self.measurements.sum_rain_last_24.device_id
-        local module_id = self.measurements.sum_rain_last_24.module_id
 
-        local curr_time = os.time()
-        local tm_begin = curr_time - 24 * 60 * 60
-        
-        self:oAuthNetatmo(function(token)
-            self:getRainMeasurements(token, tm_begin, curr_time, device_id, module_id)
-        end)
-    else
-        self:warning("Can't find Rain module")
-    end
---]]
 end
 
 
